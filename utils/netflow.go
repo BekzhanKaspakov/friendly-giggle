@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"github.com/cloudflare/goflow/decoders/netflow"
 	flowmessage "github.com/cloudflare/goflow/pb"
-
-	//flowmessage "github.com/cloudflare/goflow/pb"
 	"github.com/cloudflare/goflow/producer"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
@@ -16,12 +14,12 @@ import (
 )
 
 type TemplateSystem struct {
-	Key       string
-	Templates *netflow.BasicTemplateSystem
+	key       string
+	templates *netflow.BasicTemplateSystem
 }
 
 func (s *TemplateSystem) AddTemplate(version uint16, obsDomainId uint32, template interface{}) {
-	s.Templates.AddTemplate(version, obsDomainId, template)
+	s.templates.AddTemplate(version, obsDomainId, template)
 
 	typeStr := "options_template"
 	var templateId uint16
@@ -36,7 +34,7 @@ func (s *TemplateSystem) AddTemplate(version uint16, obsDomainId uint32, templat
 	}
 	NetFlowTemplatesStats.With(
 		prometheus.Labels{
-			"router":        s.Key,
+			"router":        s.key,
 			"version":       strconv.Itoa(int(version)),
 			"obs_domain_id": strconv.Itoa(int(obsDomainId)),
 			"template_id":   strconv.Itoa(int(templateId)),
@@ -46,7 +44,7 @@ func (s *TemplateSystem) AddTemplate(version uint16, obsDomainId uint32, templat
 }
 
 func (s *TemplateSystem) GetTemplate(version uint16, obsDomainId uint32, templateId uint16) (interface{}, error) {
-	return s.Templates.GetTemplate(version, obsDomainId, templateId)
+	return s.templates.GetTemplate(version, obsDomainId, templateId)
 }
 
 type StateNetFlow struct {
@@ -73,8 +71,8 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 	templates, ok := s.templates[key]
 	if !ok {
 		templates = &TemplateSystem{
-			Templates: netflow.CreateTemplateSystem(),
-			Key:       key,
+			templates: netflow.CreateTemplateSystem(),
+			key:       key,
 		}
 		s.templates[key] = templates
 	}
@@ -206,17 +204,17 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		}
 		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
 
-		//for _, fmsg := range flowMessageSet {
-		//	fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
-		//	fmsg.SamplerAddress = samplerAddress
-		//	timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
-		//	NetFlowTimeStatsSum.With(
-		//		prometheus.Labels{
-		//			"router":  key,
-		//			"version": "9",
-		//		}).
-		//		Observe(float64(timeDiff))
-		//}
+		for _, fmsg := range flowMessageSet {
+			fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
+			fmsg.SamplerAddress = samplerAddress
+			timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
+			NetFlowTimeStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"version": "9",
+				}).
+				Observe(float64(timeDiff))
+		}
 	case netflow.IPFIXPacket:
 		NetFlowStats.With(
 			prometheus.Labels{
@@ -299,17 +297,17 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		}
 		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
 
-		//for _, fmsg := range flowMessageSet {
-		//	fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
-		//	fmsg.SamplerAddress = samplerAddress
-		//	timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
-		//	NetFlowTimeStatsSum.With(
-		//		prometheus.Labels{
-		//			"router":  key,
-		//			"version": "10",
-		//		}).
-		//		Observe(float64(timeDiff))
-		//}
+		for _, fmsg := range flowMessageSet {
+			fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
+			fmsg.SamplerAddress = samplerAddress
+			timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
+			NetFlowTimeStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"version": "10",
+				}).
+				Observe(float64(timeDiff))
+		}
 	}
 
 	timeTrackStop := time.Now()
@@ -330,7 +328,7 @@ func (s *StateNetFlow) ServeHTTPTemplates(w http.ResponseWriter, r *http.Request
 	tmp := make(map[string]map[uint16]map[uint32]map[uint16]interface{})
 	s.templateslock.RLock()
 	for key, templatesrouterstr := range s.templates {
-		templatesrouter := templatesrouterstr.Templates.GetTemplates()
+		templatesrouter := templatesrouterstr.templates.GetTemplates()
 		tmp[key] = templatesrouter
 	}
 	s.templateslock.RUnlock()
